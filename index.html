@@ -1,1 +1,488 @@
-<h1>메인 페이지야!</h1>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>게스트하우스 예약</title>
+<style>
+  /* ── 색상/여백 같은 공통 값. 여기만 바꾸면 전체 분위기가 바뀝니다 ── */
+  :root {
+    --main: #2f6f5e;          /* 강조 색 (버튼, 제목) */
+    --main-dark: #245448;
+    --bg: #f6f7f5;
+    --card: #ffffff;
+    --line: #e3e6e3;
+    --text: #23282a;
+    --muted: #737b7d;
+    --danger: #c0392b;
+    --radius: 12px;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px 16px 64px;
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+
+  header { text-align: center; margin-bottom: 24px; }
+  header h1 { margin: 0 0 4px; font-size: 26px; color: var(--main); }
+  header p { margin: 0; color: var(--muted); font-size: 14px; }
+
+  /* ── 탭 ── */
+  .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .tab {
+    flex: 1; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius);
+    background: var(--card); color: var(--muted); font-size: 15px; font-weight: 600;
+    cursor: pointer;
+  }
+  .tab.on { background: var(--main); border-color: var(--main); color: #fff; }
+
+  /* ── 카드 ── */
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 20px; margin-bottom: 16px;
+  }
+  .card h2 { margin: 0 0 16px; font-size: 17px; }
+
+  /* ── 입력 ── */
+  label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  input, select, textarea {
+    width: 100%; padding: 11px 12px; border: 1px solid var(--line); border-radius: 8px;
+    font-size: 15px; font-family: inherit; background: #fff; color: var(--text);
+  }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--main); border-color: var(--main); }
+  textarea { resize: vertical; min-height: 72px; }
+  .field { margin-bottom: 14px; }
+  .row { display: flex; gap: 12px; }
+  .row > * { flex: 1; }
+
+  button {
+    width: 100%; padding: 13px; border: 0; border-radius: 8px;
+    background: var(--main); color: #fff; font-size: 15px; font-weight: 700;
+    font-family: inherit; cursor: pointer;
+  }
+  button:hover { background: var(--main-dark); }
+  button:disabled { background: #b9c2bf; cursor: not-allowed; }
+  button.ghost { background: #fff; color: var(--danger); border: 1px solid var(--danger); }
+  button.ghost:hover { background: #fdf3f2; }
+
+  /* ── 객실 목록 ── */
+  .room {
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 10px;
+  }
+  .room.off { opacity: .5; }
+  .room-name { font-weight: 700; }
+  .room-desc { font-size: 13px; color: var(--muted); }
+  .room-price { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .room button { width: auto; padding: 9px 16px; white-space: nowrap; }
+  .badge {
+    font-size: 12px; padding: 4px 10px; border-radius: 20px;
+    background: #f0f1ef; color: var(--muted); white-space: nowrap;
+  }
+
+  /* ── 결과/안내 ── */
+  .msg { padding: 12px 14px; border-radius: 8px; font-size: 14px; margin-bottom: 14px; }
+  .msg.err { background: #fdeceb; color: var(--danger); }
+  .msg.ok  { background: #eaf5f0; color: var(--main-dark); }
+
+  .summary { list-style: none; margin: 0; padding: 0; }
+  .summary li { display: flex; justify-content: space-between; padding: 9px 0; border-bottom: 1px dashed var(--line); font-size: 14px; }
+  .summary li:last-child { border-bottom: 0; }
+  .summary .k { color: var(--muted); }
+  .summary .v { font-weight: 600; text-align: right; }
+
+  .code { font-size: 24px; font-weight: 800; color: var(--main); letter-spacing: 1px; }
+  .hide { display: none; }
+  .center { text-align: center; }
+  .note { font-size: 13px; color: var(--muted); margin-top: 10px; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #fff6; border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -2px; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1 id="house-name">게스트하우스 예약</h1>
+    <p>날짜를 고르고 빈 객실을 확인해보세요</p>
+  </header>
+
+  <div class="tabs">
+    <button class="tab on" id="tab-book" onclick="showTab('book')">예약하기</button>
+    <button class="tab" id="tab-find" onclick="showTab('find')">예약 조회 / 취소</button>
+  </div>
+
+  <!-- ══════════ 예약하기 ══════════ -->
+  <section id="page-book">
+
+    <!-- 1단계: 날짜 검색 -->
+    <div class="card" id="step-search">
+      <h2>1. 언제 묵으시나요?</h2>
+      <div class="row">
+        <div class="field">
+          <label for="in-checkin">체크인</label>
+          <input type="date" id="in-checkin">
+        </div>
+        <div class="field">
+          <label for="in-checkout">체크아웃</label>
+          <input type="date" id="in-checkout">
+        </div>
+      </div>
+      <div class="field">
+        <label for="in-guests">인원</label>
+        <select id="in-guests">
+          <option value="1">1명</option><option value="2" selected>2명</option>
+          <option value="3">3명</option><option value="4">4명</option>
+          <option value="5">5명</option><option value="6">6명</option>
+        </select>
+      </div>
+      <button id="btn-search" onclick="searchRooms()">빈 객실 찾기</button>
+      <div id="search-msg"></div>
+    </div>
+
+    <!-- 2단계: 객실 선택 -->
+    <div class="card hide" id="step-rooms">
+      <h2>2. 객실을 선택하세요</h2>
+      <div id="room-list"></div>
+    </div>
+
+    <!-- 3단계: 정보 입력 -->
+    <div class="card hide" id="step-form">
+      <h2>3. 예약자 정보를 입력하세요</h2>
+      <ul class="summary" id="pick-summary"></ul>
+      <hr style="border:0;border-top:1px solid var(--line);margin:16px 0">
+      <div class="field">
+        <label for="in-name">이름 <span style="color:var(--danger)">*</span></label>
+        <input type="text" id="in-name" placeholder="홍길동" autocomplete="name">
+      </div>
+      <div class="field">
+        <label for="in-phone">연락처 <span style="color:var(--danger)">*</span></label>
+        <input type="tel" id="in-phone" placeholder="010-1234-5678" autocomplete="tel">
+      </div>
+      <div class="field">
+        <label for="in-email">이메일 (예약 확인 메일을 받습니다)</label>
+        <input type="email" id="in-email" placeholder="guest@example.com" autocomplete="email">
+      </div>
+      <div class="field">
+        <label for="in-note">요청사항</label>
+        <textarea id="in-note" placeholder="도착 예정 시간, 알레르기 등 편하게 적어주세요"></textarea>
+      </div>
+      <button id="btn-submit" onclick="submitBooking()">예약 신청하기</button>
+      <div id="form-msg"></div>
+      <p class="note">신청 후 예약번호가 발급됩니다. 확정 여부는 게스트하우스에서 별도로 연락드립니다.</p>
+    </div>
+
+    <!-- 4단계: 완료 -->
+    <div class="card hide center" id="step-done">
+      <h2 style="margin-bottom:6px">예약 신청이 접수되었습니다</h2>
+      <p class="note" style="margin-top:0">아래 예약번호를 꼭 기억해주세요</p>
+      <p class="code" id="done-code"></p>
+      <ul class="summary" id="done-summary" style="text-align:left;margin:16px 0"></ul>
+      <button onclick="resetAll()">새 예약하기</button>
+    </div>
+
+  </section>
+
+  <!-- ══════════ 예약 조회 ══════════ -->
+  <section id="page-find" class="hide">
+    <div class="card">
+      <h2>예약 조회</h2>
+      <div class="field">
+        <label for="find-id">예약번호</label>
+        <input type="text" id="find-id" placeholder="GH260715-4821">
+      </div>
+      <div class="field">
+        <label for="find-name">예약자 이름</label>
+        <input type="text" id="find-name" placeholder="홍길동">
+      </div>
+      <button id="btn-find" onclick="lookup()">조회하기</button>
+      <div id="find-msg"></div>
+    </div>
+
+    <div class="card hide" id="find-result">
+      <h2>예약 내용</h2>
+      <ul class="summary" id="find-summary"></ul>
+      <button class="ghost" id="btn-cancel" style="margin-top:16px" onclick="cancelBooking()">예약 취소하기</button>
+    </div>
+  </section>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// 설정: 아래 주소를 본인의 Apps Script 웹앱 주소로 바꿔주세요.
+// (Apps Script 안에서 실행하면 자동으로 채워지므로 그대로 두셔도 됩니다)
+// ═══════════════════════════════════════════════════════════════════
+var API_URL = 'https://script.google.com/macros/s/AKfycbxjz40EJNrg9So-y6vPYd66-WEudeZoCLckOLb0fGF28y5PsZm0gUbLO7Cn8DlXgw5N/exec';
+
+// 화면이 기억하고 있는 값들
+var state = { checkIn: '', checkOut: '', guests: 2, room: null, booking: null };
+
+
+// ── 서버와 통신하는 함수 ─────────────────────────────────────────────
+// Apps Script는 'text/plain'으로 보내야 브라우저 보안(CORS)에 막히지 않습니다.
+function callApi(payload) {
+  if (API_URL.indexOf('PASTE_') === 0) {
+    return Promise.reject(new Error('API_URL이 설정되지 않았습니다. index.html 위쪽의 API_URL에 웹앱 주소를 넣어주세요.'));
+  }
+  return fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload)
+  })
+  .then(function (res) { return res.json(); })
+  .then(function (json) {
+    if (!json.ok) throw new Error(json.error);
+    return json.data;
+  });
+}
+
+
+// ── 탭 전환 ─────────────────────────────────────────────────────────
+function showTab(which) {
+  document.getElementById('page-book').classList.toggle('hide', which !== 'book');
+  document.getElementById('page-find').classList.toggle('hide', which !== 'find');
+  document.getElementById('tab-book').classList.toggle('on', which === 'book');
+  document.getElementById('tab-find').classList.toggle('on', which === 'find');
+}
+
+
+// ── 1단계: 빈 객실 검색 ─────────────────────────────────────────────
+function searchRooms() {
+  var checkIn = document.getElementById('in-checkin').value;
+  var checkOut = document.getElementById('in-checkout').value;
+  var guests = Number(document.getElementById('in-guests').value);
+
+  if (!checkIn || !checkOut) return setMsg('search-msg', '체크인과 체크아웃 날짜를 모두 골라주세요.', 'err');
+  if (checkOut <= checkIn) return setMsg('search-msg', '체크아웃은 체크인 다음날 이후여야 합니다.', 'err');
+
+  state.checkIn = checkIn; state.checkOut = checkOut; state.guests = guests;
+  setMsg('search-msg', '');
+  loading('btn-search', true, '찾는 중...');
+
+  callApi({ action: 'availability', checkIn: checkIn, checkOut: checkOut, guests: guests })
+    .then(function (data) {
+      renderRooms(data);
+      document.getElementById('step-rooms').classList.remove('hide');
+      document.getElementById('step-form').classList.add('hide');
+      document.getElementById('step-rooms').scrollIntoView({ behavior: 'smooth' });
+    })
+    .catch(function (err) { setMsg('search-msg', err.message, 'err'); })
+    .finally(function () { loading('btn-search', false, '빈 객실 찾기'); });
+}
+
+function renderRooms(data) {
+  var box = document.getElementById('room-list');
+  box.innerHTML = '';
+
+  if (!data.rooms.length) {
+    box.innerHTML = '<p class="note">등록된 객실이 없습니다.</p>';
+    return;
+  }
+
+  data.rooms.forEach(function (room) {
+    var div = document.createElement('div');
+    div.className = 'room' + (room.available ? '' : ' off');
+
+    var info = document.createElement('div');
+    info.innerHTML =
+      '<div class="room-name">' + esc(room.name) + '</div>' +
+      '<div class="room-desc">' + esc(room.desc) + '</div>' +
+      '<div class="room-price">최대 ' + room.capacity + '명 · ' +
+      won(room.price) + '/박 → 총 ' + won(room.total) + ' (' + room.nights + '박)</div>';
+    div.appendChild(info);
+
+    if (room.available) {
+      var btn = document.createElement('button');
+      btn.textContent = '선택';
+      btn.onclick = function () { pickRoom(room); };
+      div.appendChild(btn);
+    } else {
+      var badge = document.createElement('span');
+      badge.className = 'badge';
+      badge.textContent = room.reason;
+      div.appendChild(badge);
+    }
+    box.appendChild(div);
+  });
+
+  var any = data.rooms.some(function (r) { return r.available; });
+  if (!any) box.insertAdjacentHTML('afterbegin',
+    '<div class="msg err">조건에 맞는 빈 객실이 없습니다. 날짜나 인원을 바꿔보세요.</div>');
+}
+
+
+// ── 2단계: 객실 선택 ────────────────────────────────────────────────
+function pickRoom(room) {
+  state.room = room;
+
+  document.getElementById('pick-summary').innerHTML = [
+    li('객실', room.name),
+    li('기간', state.checkIn + ' ~ ' + state.checkOut + ' (' + room.nights + '박)'),
+    li('인원', state.guests + '명'),
+    li('결제 예정 금액', won(room.total))
+  ].join('');
+
+  setMsg('form-msg', '');
+  document.getElementById('step-form').classList.remove('hide');
+  document.getElementById('step-form').scrollIntoView({ behavior: 'smooth' });
+}
+
+
+// ── 3단계: 예약 신청 ────────────────────────────────────────────────
+function submitBooking() {
+  var name = document.getElementById('in-name').value.trim();
+  var phone = document.getElementById('in-phone').value.trim();
+
+  if (name.length < 2) return setMsg('form-msg', '이름을 입력해주세요.', 'err');
+  if (phone.replace(/[^0-9]/g, '').length < 9) return setMsg('form-msg', '연락처를 정확히 입력해주세요.', 'err');
+
+  setMsg('form-msg', '');
+  loading('btn-submit', true, '신청 중...');
+
+  callApi({
+    action: 'book',
+    roomId: state.room.id,
+    checkIn: state.checkIn,
+    checkOut: state.checkOut,
+    guests: state.guests,
+    name: name,
+    phone: phone,
+    email: document.getElementById('in-email').value.trim(),
+    note: document.getElementById('in-note').value.trim()
+  })
+  .then(function (booking) {
+    state.booking = booking;
+    document.getElementById('done-code').textContent = booking.id;
+    document.getElementById('done-summary').innerHTML = [
+      li('객실', booking.roomName),
+      li('기간', booking.checkIn + ' ~ ' + booking.checkOut + ' (' + booking.nights + '박)'),
+      li('예약자', booking.name + ' (' + booking.guests + '명)'),
+      li('금액', won(booking.total)),
+      li('상태', booking.status)
+    ].join('');
+
+    ['step-search', 'step-rooms', 'step-form'].forEach(function (id) {
+      document.getElementById(id).classList.add('hide');
+    });
+    document.getElementById('step-done').classList.remove('hide');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  })
+  .catch(function (err) { setMsg('form-msg', err.message, 'err'); })
+  .finally(function () { loading('btn-submit', false, '예약 신청하기'); });
+}
+
+function resetAll() {
+  state = { checkIn: '', checkOut: '', guests: 2, room: null, booking: null };
+  ['in-name', 'in-phone', 'in-email', 'in-note'].forEach(function (id) {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('step-done').classList.add('hide');
+  document.getElementById('step-rooms').classList.add('hide');
+  document.getElementById('step-form').classList.add('hide');
+  document.getElementById('step-search').classList.remove('hide');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+
+// ── 예약 조회 / 취소 ────────────────────────────────────────────────
+function lookup() {
+  var id = document.getElementById('find-id').value.trim();
+  var name = document.getElementById('find-name').value.trim();
+  if (!id || !name) return setMsg('find-msg', '예약번호와 이름을 모두 입력해주세요.', 'err');
+
+  setMsg('find-msg', '');
+  loading('btn-find', true, '조회 중...');
+
+  callApi({ action: 'lookup', id: id, name: name })
+    .then(function (b) {
+      document.getElementById('find-summary').innerHTML = [
+        li('예약번호', b.id),
+        li('상태', b.status),
+        li('객실', b.roomName),
+        li('기간', b.checkIn + ' ~ ' + b.checkOut + ' (' + b.nights + '박)'),
+        li('예약자', b.name + ' / ' + b.phone),
+        li('인원', b.guests + '명'),
+        li('요청사항', b.note || '-'),
+        li('금액', won(b.total))
+      ].join('');
+      document.getElementById('find-result').classList.remove('hide');
+      document.getElementById('btn-cancel').classList.toggle('hide', b.status === '취소');
+    })
+    .catch(function (err) {
+      document.getElementById('find-result').classList.add('hide');
+      setMsg('find-msg', err.message, 'err');
+    })
+    .finally(function () { loading('btn-find', false, '조회하기'); });
+}
+
+function cancelBooking() {
+  if (!confirm('정말 예약을 취소하시겠습니까?\n취소한 예약은 되돌릴 수 없습니다.')) return;
+
+  var id = document.getElementById('find-id').value.trim();
+  var name = document.getElementById('find-name').value.trim();
+  loading('btn-cancel', true, '취소 중...');
+
+  callApi({ action: 'cancel', id: id, name: name })
+    .then(function () {
+      setMsg('find-msg', '예약이 취소되었습니다.', 'ok');
+      lookup(); // 바뀐 상태를 다시 불러옵니다
+    })
+    .catch(function (err) { setMsg('find-msg', err.message, 'err'); })
+    .finally(function () { loading('btn-cancel', false, '예약 취소하기'); });
+}
+
+
+// ── 자잘한 도우미들 ─────────────────────────────────────────────────
+function setMsg(id, text, kind) {
+  var box = document.getElementById(id);
+  box.innerHTML = text ? '<div class="msg ' + (kind || 'ok') + '">' + esc(text) + '</div>' : '';
+}
+
+function loading(btnId, isOn, label) {
+  var btn = document.getElementById(btnId);
+  btn.disabled = isOn;
+  btn.innerHTML = isOn ? '<span class="spinner"></span>' + label : label;
+}
+
+function li(key, value) {
+  return '<li><span class="k">' + esc(key) + '</span><span class="v">' + esc(String(value)) + '</span></li>';
+}
+
+function won(n) { return Number(n).toLocaleString('ko-KR') + '원'; }
+
+/** 손님이 입력한 글자가 화면을 망가뜨리지 않도록 안전하게 바꿔줍니다. */
+function esc(s) {
+  var div = document.createElement('div');
+  div.textContent = s == null ? '' : String(s);
+  return div.innerHTML;
+}
+
+/** 페이지가 열리면 날짜 기본값(오늘/내일)을 채워줍니다. */
+(function init() {
+  var today = new Date();
+  var tomorrow = new Date(today.getTime() + 86400000);
+  var fmt = function (d) {
+    return d.getFullYear() + '-' +
+      String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0');
+  };
+  var ci = document.getElementById('in-checkin');
+  var co = document.getElementById('in-checkout');
+  ci.value = fmt(today);   ci.min = fmt(today);
+  co.value = fmt(tomorrow); co.min = fmt(tomorrow);
+
+  // 체크인을 바꾸면 체크아웃은 그 다음날 이후만 고를 수 있게 합니다.
+  ci.addEventListener('change', function () {
+    var next = new Date(new Date(ci.value).getTime() + 86400000);
+    co.min = fmt(next);
+    if (co.value <= ci.value) co.value = fmt(next);
+  });
+})();
+</script>
+</body>
+</html>
